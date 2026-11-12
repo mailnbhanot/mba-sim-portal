@@ -1,0 +1,9 @@
+{% from "_tables.html" import table %}
+<div class="card">
+  <h3 style="font-size:18px">Free public data</h3>
+  <p class="muted">Industry estimates anyone can read. They are rounded, carry large errors, cover only two spotlight categories and show headline measures. The paid reports in <b>Report shop</b> are precise, cover the categories and segments you choose, and let you pick the measures. Everyone sees the same public data. Reports about your own company and your own draft have no public version.</p>
+</div>
+{% for pr in public_reports %}
+<div class="card"><details {{ 'open' if loop.first }}><summary><b>{{ pr.title }}</b> <span class="pill">Public</span></summary>
+  <p class="muted">{{ pr.note }}</p>{% for tb in pr.tables %}{{ table(tb) }}{% endfor %}</details></div>
+{% endfor %}

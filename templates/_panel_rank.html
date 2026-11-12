@@ -1,0 +1,7 @@
+<div class="card">
+  <h3 style="font-size:18px">Tournament standings</h3>
+  <p class="muted">You are #{{ board_pos }} of {{ board_n }}. Score = profit {{ t.rank_w_profit }}% + market share {{ 100 - t.rank_w_profit }}% (each as a percentile among all companies, averaged over rounds).</p>
+  <table><tr><th>#</th><th>Company</th><th class="n">Cumulative profit</th><th class="n">Average share</th><th class="n">Score</th></tr>
+  {% for b in board %}<tr class="{{ 'me' if b.id == me_p.id }}"><td>{{ b.rank }}</td><td>{{ b.alias }}{{ ' (you)' if b.id == me_p.id }}</td><td class="n">{{ b.cum_profit|inr }}</td><td class="n">{{ b.avg_share|pct(1) }}</td><td class="n">{{ (b.rank_score * 100)|round(0)|int }}</td></tr>{% endfor %}
+  </table>
+</div>

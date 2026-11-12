@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="row" style="justify-content:space-between;align-items:center">
+  <div>
+    <h1>{{ t.name }}</h1>
+    <p class="sub">
+      <span class="pill {{ 'ok' if t.status=='active' else '' }}">{{ t.status }}</span>
+      {% if t.current_round %} Round {{ t.current_round }} of {{ t.total_rounds }} ({{ t.round_state }}){% endif %}
+      &middot; {{ game.course_code }} {{ game.title }} &middot; {{ enrolled|length }} students &middot;
+      {% if t.participation == 'team' %}teams{% else %}individuals{% endif %} &middot; {{ t.mode }} rounds &middot;
+      {% if t.market_mode == 'groups' %}{{ n_groups or '' }} industry groups of about {{ t.group_size }}{% else %}single market{% endif %}
+    </p>
+  </div>
+  {% if t.status != 'draft' %}<a class="btn sec" href="{{ url_for('admin_export', tid=t.id) }}">Download results (CSV)</a>{% endif %}
+</div>
+
+{% if t.status == 'draft' %}
+<div class="card">
+  <h3>1. Enrol students</h3>
+  <p class="muted">Only enrolled students can see and play this tournament.</p>
+  <form method="post" action="{{ url_for('admin_enroll', tid=t.id) }}" class="row">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div><label>Add a batch</label>
+      <select name="batch"><option value="">(none)</option><option value="__all__">All students</option>{% for b in batches %}<option>{{ b }}</option>{% endfor %}</select></div>
+    <div style="flex:1"><label>and/or usernames</label><textarea name="usernames" rows="2" style="width:100%" placeholder="paste usernames, one per line or comma separated"></textarea></div>
+    <button>Enrol</button>
+  </form>
+  {% if t.participation == 'team' %}
+  <form method="post" action="{{ url_for('admin_enroll', tid=t.id) }}" style="margin-top:14px">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Place students in teams yourself (optional)</label>
+    <textarea name="teams" rows="4" style="width:100%" placeholder="One team per line:&#10;Team Alpha: r101, r102, r103&#10;Team Beta: r104, r105, r106"></textarea>
+    <p class="muted">These students are enrolled and put in exactly these teams. Everyone else you enrol is placed in random teams of about {{ t.team_size }} when you start.</p>
+    <button class="sec">Enrol with these teams</button>
+  </form>
+  {% endif %}
+</div>
+<div class="card">
+  <h3>2. Start</h3>
+  <p class="muted">Starting locks enrolment, forms the market groups and opens Round 1.</p>
+  <form method="post" action="{{ url_for('admin_action', tid=t.id) }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="start">
+    <button {{ 'disabled' if enrolled|length < 2 }}>Start tournament and open Round 1</button>
+  </form>
+</div>
+{% else %}
+
+{% if t.round_state == 'processed' and not next_built and t.status == 'active' %}
+<div class="flash error">Only {{ game.implemented_rounds|length }} of {{ game.total_rounds }} rounds of this game are built so far. The next rounds will be added in later build stages.</div>
+{% endif %}
+
+<div class="grid g2">
+<div class="card">
+  <h3>Round control</h3>
+  {% if t.status == 'active' %}
+    {% if t.round_state == 'open' %}
+      <p>Round {{ t.current_round }} is <b>open</b>. {{ submitted|length }} of {{ board|length }} {{ 'teams' if t.participation == 'team' else 'students' }} have submitted.
+      {% if t.mode == 'auto' %}<br>Closes automatically at <b>{{ t.deadline|ist }}</b>.{% endif %}</p>
+      <form method="post" action="{{ url_for('admin_action', tid=t.id) }}" style="display:inline">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="process">
+        <button onclick="return confirm('Close Round {{ t.current_round }} and calculate results now?')">Process round now</button>
+      </form>
+      {% if t.mode == 'auto' %}
+      <form method="post" action="{{ url_for('admin_action', tid=t.id) }}" class="row" style="margin-top:10px">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="extend">
+        <div><label>Extend deadline by (hours)</label><input type="number" name="hours" value="24" min="1"></div><button class="sec">Extend</button>
+      </form>{% endif %}
+    {% else %}
+      <p>Round {{ t.current_round }} is <b>processed</b>. Students can see their results.</p>
+      {% if next_built %}
+      <form method="post" action="{{ url_for('admin_action', tid=t.id) }}" class="row">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="next">
+        {% if t.mode == 'auto' %}<div><label>Deadline for next round (IST, optional)</label><input type="datetime-local" name="deadline"></div>{% endif %}
+        <button>Open Round {{ t.current_round + 1 }}</button>
+      </form>
+      {% else %}<p class="muted">Round {{ t.current_round + 1 }} is not built yet.</p>{% endif %}
+    {% endif %}
+  {% else %}<p>The tournament is finished.</p>{% endif %}
+</div>
+
+<div class="card">
+  <h3>Settings</h3>
+  <form method="post" action="{{ url_for('admin_action', tid=t.id) }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="settings">
+    <div class="row">
+      <div><label>Round control</label><select name="mode"><option value="manual" {{ 'selected' if t.mode=='manual' }}>Manual</option><option value="auto" {{ 'selected' if t.mode=='auto' }}>Automatic</option></select></div>
+      <div><label>Hours per round</label><input type="number" name="interval_hours" value="{{ t.interval_hours }}" min="1"></div>
+      <div><label>Profit weight in ranking (%)</label><input type="number" name="rank_w_profit" value="{{ t.rank_w_profit }}" min="0" max="100"></div>
+      <div><label>Current deadline (IST)</label><input type="datetime-local" name="deadline" value="{{ t.deadline|ist_input }}"></div>
+    </div>
+    <p><button class="sec">Save</button> <span class="muted">You can switch between manual and automatic at any time.</span></p>
+  </form>
+</div>
+</div>
+
+{% if t.status == 'active' and t.round_state == 'open' %}
+<div class="card">
+  <h3>Events for Round {{ t.current_round }}</h3>
+  <p class="muted">An event hits every student in the market at once and appears in their market news. Add it before you process the round.</p>
+  {% for key in events %}
+    <div class="event"><b>{{ EVENTS[key].label }}</b>: {{ EVENTS[key].desc }}
+      <form method="post" action="{{ url_for('admin_action', tid=t.id) }}" style="display:inline;margin-left:8px">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="remove_event"><input type="hidden" name="event" value="{{ key }}">
+        <button class="sec" style="padding:2px 8px">Remove</button></form></div>
+  {% endfor %}
+  <form method="post" action="{{ url_for('admin_action', tid=t.id) }}" class="row">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="event">
+    <div><label>Add event</label><select name="event">
+      {% for key, ev in EVENTS.items() if key not in events %}<option value="{{ key }}">{{ ev.label }} (suits rounds {{ ev.suits }})</option>{% endfor %}
+    </select></div><button>Trigger</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>Standings (profit {{ t.rank_w_profit }}%, market share {{ 100 - t.rank_w_profit }}%)</h3>
+  <table><tr><th>#</th><th>{{ 'Team' if t.participation == 'team' else 'Player' }}</th><th>{{ 'Members' if t.participation == 'team' else 'Student' }}</th><th>Market group</th><th class="n">Avg share</th><th class="n">Score</th><th class="n">Cash</th><th class="n">Change vs start</th></tr>
+  {% for e in board[:25] %}<tr><td>{{ e.rank }}</td><td>{{ e.alias }}</td><td>{% for u in members.get(e.id, []) %}{{ u.name }} ({{ u.username }}){{ '; ' if not loop.last }}{% endfor %}</td><td>{{ e.group_no + 1 }}</td>
+    <td class="n">{{ e.avg_share|pct(1) }}</td><td class="n">{{ (e.rank_score * 100)|round(0)|int }}</td><td class="n">{{ e.cash|inr }}</td><td class="n {{ 'pos' if e.cash >= t.start_cash else 'neg' }}">{{ (e.cash - t.start_cash)|inr }}</td></tr>{% endfor %}
+  </table>
+  {% if board|length > 25 %}<p class="muted">Top 25 shown. Download the CSV for everyone.</p>{% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>Enrolled students ({{ enrolled|length }})</h3>
+  <table><tr><th>Username</th><th>Name</th><th>Batch</th>{% if t.status != 'draft' %}<th>{{ 'Team' if t.participation == 'team' else 'Player' }}</th><th>Round {{ t.current_round }}</th>{% else %}<th>{% if t.participation == 'team' %}Team{% endif %}</th><th></th>{% endif %}</tr>
+  {% for e in enrolled[:300] %}<tr><td>{{ e.user.username }}</td><td>{{ e.user.name }}</td><td>{{ e.user.batch }}</td>
+    {% if t.status != 'draft' %}<td>{{ e.participant.alias if e.participant else '' }}</td>
+      <td>{% if t.round_state == 'open' %}<span class="pill {{ 'ok' if e.participant_id in submitted else 'warn' }}">{{ 'submitted' if e.participant_id in submitted else 'waiting' }}</span>{% else %}<span class="pill">done</span>{% endif %}</td>
+    {% else %}<td>{{ e.team_label }}</td><td><form method="post" action="{{ url_for('admin_unenroll', tid=t.id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="user_id" value="{{ e.user_id }}"><button class="sec" style="padding:2px 8px">Remove</button></form></td>{% endif %}</tr>{% endfor %}
+  </table>
+  {% if enrolled|length > 300 %}<p class="muted">First 300 shown.</p>{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% macro stm(rows, cum=False) %}
+<table class="stm">
+  {% if cum %}<tr><th></th><th class="v">This round</th><th class="v">Cumulative</th></tr>{% endif %}
+  {% for r in rows %}{% if r.kind == 'h' %}<tr class="h"><td colspan="{{ 3 if cum else 2 }}"><b>{{ r.label }}</b></td></tr>{% else %}<tr class="{{ r.kind }}"><td>{{ r.label }}</td><td class="v {{ 'neg' if r.v < -0.5 }}">{{ r.v|inr }}</td>{% if cum %}<td class="v {{ 'neg' if r.cum < -0.5 }}">{{ r.cum|inr }}</td>{% endif %}</tr>{% endif %}{% endfor %}
+</table>
+{% endmacro %}
+<div class="card">
+  <h3 style="font-size:18px">Financial statements</h3>
+  {% if fin_round %}<p class="muted">Statements for Round {{ fin_round }}{% if fin_round == view_round %} (the round you are viewing){% else %} (your latest processed round){% endif %}. They are rebuilt after every round. Variable costs rise and fall with the packs you sell. Fixed costs are paid whatever you sell and grow with every product, pack and market you add. No tax is charged and the game has no fixed assets.</p>
+  {% else %}<p class="muted">Opening position. Nothing has been traded yet, so the profit and loss account and cash flow are zero. You start with {{ fin.bs[0].v|inr }} of cash. Full statements appear from Round 2, after Round 1 is processed.</p>{% endif %}
+  {% if not fin.balanced %}<p class="neg">Balance sheet does not balance.</p>{% endif %}
+</div>
+<div class="card"><h3>Profit and loss account</h3>
+  {{ stm(fin.pl, True) }}</div>
+<div class="grid g2">
+  <div class="card"><h3>Balance sheet (end of round)</h3>{{ stm(fin.bs) }}</div>
+  <div class="card"><h3>Cash flow statement</h3>{{ stm(fin.cf) }}</div>
+</div>

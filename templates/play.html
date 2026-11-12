@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ t.name }}{% endblock %}
+{% block mainclass %}wide{% endblock %}
+{% block body %}
+<div class="row" style="justify-content:space-between;align-items:flex-end">
+  <div><h1>{{ t.name }}</h1>
+    <p class="sub">{{ game.course_code }} {{ game.title }} &middot; {{ me_p.alias }} &middot; Round {{ view_round }} of {{ t.total_rounds }}
+      {% if t.mode == 'auto' and t.round_state == 'open' and t.deadline and t.status == 'active' %}&middot; closes {{ t.deadline|ist }}{% endif %}</p></div>
+</div>
+
+{% if t.participation == 'team' %}
+<div class="card" style="padding:10px 16px"><b>Team {{ me_p.alias }}:</b> {% for u in mates %}{{ u.name }}{{ ', ' if not loop.last }}{% endfor %}
+<span class="muted"> &middot; one shared decision and result. Any member can submit; the last submission counts.</span></div>
+{% endif %}
+
+<div class="layout">
+<aside class="side">
+  <div class="kpi"><span class="muted">Cash (after processed rounds)</span><b>{{ me_p.cash|inr }}</b></div>
+  <div class="kpi"><span class="muted">Standing</span><b>#{{ board_pos }} of {{ board_n }}</b></div>
+  <h4>This round</h4>
+  <button type="button" class="nav on" data-panel="p-main">{% if is_open %}Round {{ t.current_round }} decisions{% else %}Round {{ view_round }} results{% endif %}</button>
+  <h4>Learn</h4>
+  <button type="button" class="nav" data-panel="p-concept">Concept corner</button>
+  <h4>Information</h4>
+  <button type="button" class="nav" data-panel="p-fin">Financial statements</button>
+  <button type="button" class="nav" data-panel="p-public">Free public data</button>
+  <button type="button" class="nav" data-panel="p-reports">Report shop and my reports</button>
+  <h4>Competition</h4>
+  <button type="button" class="nav" data-panel="p-rank">Standings</button>
+  {% if past or is_open %}
+  <h4>Rounds</h4>
+  {% if t.status == 'active' and t.round_state == 'open' %}<a class="nav-link" href="{{ url_for('play', tid=t.id) }}">Round {{ t.current_round }} decisions</a><br>{% endif %}
+  {% for r in past %}<a class="nav-link" href="{{ url_for('play', tid=t.id, round=r) }}">Round {{ r }} results</a><br>{% endfor %}
+  {% endif %}
+</aside>
+<section>
+  <div class="panel on" id="p-main">
+  {% if is_open %}{% include template %}
+  {% elif res %}{% include template %}
+  {% else %}<div class="card muted">Results for this round are not available yet. Check back after your teacher processes the round.</div>{% endif %}
+  </div>
+  <div class="panel" id="p-concept">{% include "_panel_concepts.html" %}</div>
+  <div class="panel" id="p-fin">{% include "_panel_fin.html" %}</div>
+  <div class="panel" id="p-public">{% include "_panel_public.html" %}</div>
+  <div class="panel" id="p-reports">{% include "_panel_reports.html" %}</div>
+  <div class="panel" id="p-rank">{% include "_panel_rank.html" %}</div>
+</section>
+</div>
+<style>.nav-link{display:inline-block;margin:2px 8px;font-size:13.5px}</style>
+<script>
+(function(){
+  const btns = document.querySelectorAll('.side button.nav');
+  function show(id){
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === id));
+    btns.forEach(b => b.classList.toggle('on', b.dataset.panel === id));
+    try { history.replaceState(null, '', '#' + id); } catch(e) {}
+  }
+  btns.forEach(b => b.addEventListener('click', () => show(b.dataset.panel)));
+  const h = location.hash.slice(1);
+  if (h && document.getElementById(h) && document.getElementById(h).classList.contains('panel')) show(h);
+})();
+</script>
+{% endblock %}

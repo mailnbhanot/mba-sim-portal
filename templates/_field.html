@@ -1,0 +1,13 @@
+{% if fl.type == 'checkbox' %}
+<label style="font-weight:500"><input type="checkbox" name="{{ nm }}" {{ 'checked' if val }}> {{ fl.label }}</label>
+{% elif fl.type == 'select' %}
+<label>{{ fl.label }}</label>
+<select name="{{ nm }}" class="catsel" data-slot="{{ fl.name }}">{% for k, lab in cat_options %}<option value="{{ k }}" {{ 'selected' if k == val }}>{{ lab }}</option>{% endfor %}</select>
+{% elif fl.type == 'range' %}
+<label>{{ fl.label }}: <output id="o-{{ nm }}">{{ val }}</output></label>
+<input type="range" name="{{ nm }}" min="{{ fl.min }}" max="{{ fl.max }}" step="{{ fl.step }}" value="{{ val }}" style="width:100%" oninput="document.getElementById('o-{{ nm }}').textContent=this.value">
+{% else %}
+<label>{{ fl.label }}</label>
+<input type="number" name="{{ nm }}" min="{{ fl.min }}" {% if fl.max is not none %}max="{{ fl.max }}"{% endif %} step="{{ fl.step }}" value="{{ val|int if val == val|int else val }}">
+{% endif %}
+{% if fl.help %}<div class="muted" style="font-size:12.5px">{{ fl.help }}</div>{% endif %}

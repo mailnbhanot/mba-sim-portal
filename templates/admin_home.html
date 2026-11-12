@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="row" style="justify-content:space-between;align-items:center">
+  <div><h1>Tournaments</h1><p class="sub">{{ n_students }} students registered.</p></div>
+  <a class="btn" href="{{ url_for('admin_tournament_new') }}">New tournament</a>
+</div>
+<div class="card">
+{% if tournaments %}
+<table><tr><th>Name</th><th>Game</th><th>Status</th><th>Round</th><th class="n">Students</th><th>Mode</th><th></th></tr>
+{% for t in tournaments %}
+<tr><td><a href="{{ url_for('admin_tournament', tid=t.id) }}">{{ t.name }}</a></td>
+<td>{{ game_of(t).course_code }} {{ game_of(t).title }}</td>
+<td><span class="pill {{ 'ok' if t.status=='active' else '' }}">{{ t.status }}</span></td>
+<td>{% if t.current_round %}{{ t.current_round }} / {{ t.total_rounds }} ({{ t.round_state }}){% else %}-{% endif %}</td>
+<td class="n">{{ counts[t.id] }}</td>
+<td>{{ 'teams' if t.participation=='team' else 'individuals' }}, {{ t.mode }} rounds, {{ 'groups of ~' ~ t.group_size if t.market_mode=='groups' else 'single market' }}</td>
+<td><a href="{{ url_for('admin_tournament', tid=t.id) }}">Open</a></td></tr>
+{% endfor %}</table>
+{% else %}<p class="muted">No tournaments yet. Upload your students first, then create a tournament.</p>{% endif %}
+</div>
+{% endblock %}

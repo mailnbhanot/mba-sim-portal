@@ -1,0 +1,38 @@
+<div class="card">
+  <h3 style="font-size:18px">Concept corner</h3>
+  <p class="muted">Every term, rule, formula and calculation used in this game is explained here, with illustrations. Numbers in worked examples are made up. The real market numbers are in your reports.</p>
+  <input type="search" id="cc-q" placeholder="Search a term, e.g. fair price, break-even, receivables" style="width:100%;padding:8px;margin-top:6px">
+  <p class="muted" id="cc-n" style="margin-top:6px"></p>
+  <p style="margin-top:6px">{% for s in concepts %}<a href="#cc-{{ s.id }}" class="pill" style="margin-right:4px">{{ s.title }}</a>{% endfor %}</p>
+</div>
+{% for s in concepts %}
+<div class="card cc-sec" id="cc-{{ s.id }}">
+  <h3 style="font-size:16px">{{ s.title }}</h3>
+  {% for e in s['items'] %}
+  <details class="cc-item" {{ 'open' if s.id in ('start',) }}>
+    <summary><b>{{ e.t }}</b></summary>
+    {% for para in e.p %}<p>{{ para }}</p>{% endfor %}
+    {% if e.f %}<p class="muted" style="margin-bottom:2px"><b>Formula</b></p>{% for f in e.f %}<pre style="white-space:pre-wrap;background:#f3f4f6;padding:6px 8px;border-radius:6px;margin:3px 0">{{ f }}</pre>{% endfor %}{% endif %}
+    {% if e.ex %}<p><b>Example.</b> {{ e.ex }}</p>{% endif %}
+    {% if e.tip %}<p class="muted"><b>Tip.</b> {{ e.tip }}</p>{% endif %}
+  </details>
+  {% endfor %}
+</div>
+{% endfor %}
+<script>
+(function(){
+  var q=document.getElementById('cc-q'); if(!q) return;
+  function run(){
+    var v=q.value.trim().toLowerCase(), shown=0;
+    document.querySelectorAll('.cc-item').forEach(function(d){
+      var hit=!v||d.textContent.toLowerCase().indexOf(v)>=0;
+      d.style.display=hit?'':'none'; if(hit){shown++; if(v) d.open=true;}
+    });
+    document.querySelectorAll('.cc-sec').forEach(function(s){
+      s.style.display=[].some.call(s.querySelectorAll('.cc-item'),function(d){return d.style.display!=='none';})?'':'none';
+    });
+    document.getElementById('cc-n').textContent=v?(shown+' matching entries'):'';
+  }
+  q.addEventListener('input',run);
+})();
+</script>

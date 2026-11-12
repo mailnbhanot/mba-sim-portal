@@ -1,0 +1,124 @@
+{% from "_tables.html" import table %}
+<div class="card">
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <h3 style="margin:0;font-size:18px">Report shop</h3>
+    <span class="muted">Spent this round: <b>{{ report_spent|inr }}</b> (charged when the round is processed)</span>
+  </div>
+  <p class="muted">Nothing is given to you as a bundle. For each report you tick the measures you want, the categories and segments to cover, and the accuracy level. <b>The price depends on what you select.</b> Free public versions are in the Public data menu, and bought reports are shown next to them for comparison. Tests of your product or offer use your <b>saved draft</b>: press Save draft on the decisions page first.</p>
+  {% if not is_open %}<p class="pill warn">The shop is open only while a round is open.</p>{% endif %}
+</div>
+<div class="card" id="calcs">
+  <h3 style="font-size:17px">Your calculators</h3>
+  {% if not price_calc and not cost_calc %}<p class="muted">Buy the <b>Price perception study</b> (with its three price measures ticked) to unlock the fair price calculator, and the <b>Supplier cost sheet</b> (with the cost measures ticked) to unlock the cost calculator. They use your own purchased numbers, so a basic report gives a rougher calculator than a detailed one.</p>{% endif %}
+  <div class="grid g2">
+  {% if price_calc %}
+  <div class="seg" id="fpc"><h3>Fair price calculator</h3>
+    <label>Category</label><select class="fc-cat"></select>
+    <label>Segment</label><select class="fc-seg">{% for k, lab in seg_labels.items() %}<option value="{{ k }}">{{ lab }}</option>{% endfor %}</select>
+    <label>Quality (1-10)</label><input type="number" class="fc-q" value="5" min="1" max="10" step="0.5">
+    <label>Pack grams</label><input type="number" class="fc-g" value="100" min="1" step="1">
+    <div class="report fc-out"></div>
+    <div class="muted" style="font-size:12.5px">Fair price = grams/100 x (price per 100 g at quality 5 + extra per quality point x (quality - 5)) + packaging. Prices outside 40% to 200% of fair are pulled back into that band.</div>
+  </div>{% endif %}
+  {% if cost_calc %}
+  <div class="seg" id="cc"><h3>Making cost calculator</h3>
+    <label>Category</label><select class="cc-cat"></select>
+    <label>Quality (1-10)</label><input type="number" class="cc-q" value="5" min="1" max="10" step="0.5">
+    <label>Localisation (0-10)</label><input type="number" class="cc-l" value="0" min="0" max="10" step="0.5">
+    <label>Pack grams</label><input type="number" class="cc-g" value="100" min="1" step="1">
+    <div class="report cc-out"></div>
+    <div class="muted" style="font-size:12.5px">Making cost = grams/100 x cost per 100 g (interpolated between the quality levels in your sheet, localisation adding its share) + packaging per pack. Delivery cost per pack is extra: see the channel cost report. Fixed costs are not in this number.</div>
+  </div>{% endif %}
+  </div>
+</div>
+{% if report_now %}
+<div class="card">
+  <h3>Reports you bought this round</h3>
+  {% for rc in report_now %}
+  <details open style="margin-bottom:12px"><summary><b>{{ rc.title }}</b> <span class="pill">{{ rc.level }}</span> <span class="pill ok">{{ rc.cost|inr }}</span></summary>
+    <p class="muted">{{ rc.note }}</p>
+    {% if pubmap.get(rc.id) %}
+    <div class="cmp"><div class="pub"><b>Free public data</b><p class="muted" style="margin:2px 0">{{ pubmap[rc.id].note }}</p>{% for tb in pubmap[rc.id].tables %}{{ table(tb) }}{% endfor %}</div>
+    <div class="paid"><b>Your paid report</b>{% for tb in rc.tables %}{{ table(tb) }}{% endfor %}</div></div>
+    {% else %}{% for tb in rc.tables %}{{ table(tb) }}{% endfor %}{% endif %}
+  </details>
+  {% endfor %}
+</div>
+{% endif %}
+{% for group, items in report_groups.items() %}
+<div class="card"><details {{ 'open' if loop.first }}>
+  <summary><b>{{ group }}</b> <span class="muted">({{ items|length }})</span></summary>
+  {% for r in items %}
+  <div style="border-top:1px solid var(--line);padding:10px 0">
+    <b>{{ r.title }}</b> {% if r.public %}<span class="pill">Free public version available</span>{% endif %}{% if r.bought %}<span class="pill ok">Bought this round</span>{% endif %}
+    <div class="muted">{{ r.desc }}</div>
+    {% if is_open and not r.bought %}
+    <details style="margin-top:6px"><summary style="cursor:pointer;color:var(--brand);font-weight:600">Choose measures and buy</summary>
+    <form method="post" action="{{ url_for('game_action', tid=t.id, name='report') }}" class="rform" data-tot="{{ r.features|length }}" data-scope="{{ r.scope or '' }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="report_id" value="{{ r.id }}">
+      <p style="margin:8px 0 2px"><b>Accuracy</b></p>
+      {% for lv in r.levels %}<label style="display:inline-block;font-weight:500;margin-right:14px"><input type="radio" name="level" value="{{ loop.index0 }}" data-cost="{{ lv.cost }}" {{ 'checked' if loop.first }}> {{ lv.name }} {% if lv.cost %}(full price {{ lv.cost|inr }}){% else %}(free){% endif %}</label>{% endfor %}
+      {% if r.features %}<p style="margin:8px 0 2px"><b>Measures to include</b></p>
+      <div class="feat">{% for f in r.features %}<label><input type="checkbox" name="feat" value="{{ f.id }}" checked> {{ f.label }}</label>{% endfor %}</div>{% endif %}
+      {% if r.scope in ('cat', 'catseg') %}<p style="margin:8px 0 2px"><b>Categories</b></p>
+      <div class="feat">{% for k, lab in cat_labels.items() %}<label><input type="checkbox" name="cat" value="{{ k }}" checked> {{ lab }}</label>{% endfor %}</div>{% endif %}
+      {% if r.scope in ('seg', 'catseg') %}<p style="margin:8px 0 2px"><b>Segments</b></p>
+      <div class="feat">{% for k, lab in seg_labels.items() %}<label><input type="checkbox" name="seg" value="{{ k }}" checked> {{ lab }}</label>{% endfor %}</div>{% endif %}
+      <p style="margin:10px 0 0"><button>Buy for <span class="price">-</span></button></p>
+    </form></details>
+    {% endif %}
+  </div>
+  {% endfor %}
+</details></div>
+{% endfor %}
+{% if report_archive %}
+<div class="card"><details><summary><b>Report archive</b> <span class="muted">({{ report_archive|length }} reports from earlier rounds)</span></summary>
+  {% for rc in report_archive|reverse %}
+  <details style="margin:8px 0"><summary>Round {{ rc.round }}: {{ rc.title }} <span class="pill">{{ rc.level }}</span></summary>
+    <p class="muted">{{ rc.note }}</p>{% for tb in rc.tables %}{{ table(tb) }}{% endfor %}</details>
+  {% endfor %}
+</details></div>
+{% endif %}
+<script>
+(function(){
+  const K = {{ report_consts|tojson }};
+  function inr(x){ return x ? 'Rs ' + Math.round(x).toLocaleString('en-IN') : 'Free'; }
+  function upd(f){
+    const lv = f.querySelector('input[name=level]:checked'); const base = lv ? parseFloat(lv.dataset.cost) : 0;
+    const nf = f.querySelectorAll('input[name=feat]:checked').length, tot = Math.max(1, parseInt(f.dataset.tot));
+    const nc = Math.max(1, f.querySelectorAll('input[name=cat]:checked').length), ns = Math.max(1, f.querySelectorAll('input[name=seg]:checked').length);
+    let scale = 1; const sc = f.dataset.scope;
+    if (sc === 'cat' || sc === 'catseg') scale = K.scale * (0.2 + 0.8 * nc / K.ncat);
+    if (sc === 'seg' || sc === 'catseg') scale *= (0.2 + 0.8 * ns / K.nseg);
+    const price = base ? Math.round(base * (0.25 + 0.75 * nf / tot) * scale / 500) * 500 : 0;
+    f.querySelector('.price').textContent = inr(price);
+  }
+  document.querySelectorAll('.rform').forEach(f => { f.addEventListener('change', () => upd(f)); upd(f); });
+})();
+(function(){
+  const CL = {{ cat_labels|tojson }}; const PRICE = {{ price_calc|tojson }}; const COST = {{ cost_calc|tojson }};
+  function v(root, c){ return parseFloat(root.querySelector(c).value) || 0; }
+  function nearest(p){ const out = []; [5, 10].forEach(s => { const lo = Math.floor(p / s) * s, hi = Math.ceil(p / s) * s; if (lo >= 5) out.push(lo); out.push(hi); }); return [...new Set(out)].sort((a, b) => a - b); }
+  function interp(rows, q, f){ rows = rows.slice().sort((a, b) => a.q - b.q); if (!rows.length) return null;
+    if (q <= rows[0].q) return f(rows[0]); if (q >= rows[rows.length - 1].q) return f(rows[rows.length - 1]);
+    for (let i = 0; i < rows.length - 1; i++) if (q >= rows[i].q && q <= rows[i + 1].q) { const t = (q - rows[i].q) / (rows[i + 1].q - rows[i].q); return f(rows[i]) * (1 - t) + f(rows[i + 1]) * t; } }
+  const fp = document.getElementById('fpc');
+  if (fp && PRICE) {
+    const cats = [...new Set(PRICE.rows.map(r => r.cat))]; fp.querySelector('.fc-cat').innerHTML = cats.map(c => '<option value="' + c + '">' + CL[c] + '</option>').join('');
+    const run = () => { const cat = fp.querySelector('.fc-cat').value, seg = fp.querySelector('.fc-seg').value; const r = PRICE.rows.find(x => x.cat === cat && x.seg === seg);
+      const out = fp.querySelector('.fc-out'); if (!r) { out.textContent = 'This category and segment were not in your report.'; return; }
+      const q = v(fp, '.fc-q'), g = v(fp, '.fc-g'); const f = g / 100 * (r.base + r.perq * (q - 5)) + r.pack;
+      out.innerHTML = 'Fair price: <b>Rs ' + f.toFixed(2) + '</b><br>Allowed price band: Rs ' + (0.4 * f).toFixed(1) + ' to Rs ' + (2 * f).toFixed(1) + '<br>Round prices near fair: ' + nearest(f).map(x => 'Rs ' + x).join(', ');
+    };
+    fp.addEventListener('input', run); run();
+  }
+  const cc = document.getElementById('cc');
+  if (cc && COST) {
+    const cats = [...new Set(COST.rows.map(r => r.cat))]; cc.querySelector('.cc-cat').innerHTML = cats.map(c => '<option value="' + c + '">' + CL[c] + '</option>').join('');
+    const run = () => { const cat = cc.querySelector('.cc-cat').value; const rows = COST.rows.filter(x => x.cat === cat); const q = v(cc, '.cc-q'), l = v(cc, '.cc-l'), g = v(cc, '.cc-g');
+      const c100 = interp(rows, q, x => x.c0 + (x.c10 !== null ? (x.c10 - x.c0) * l / 10 : 0)); const pack = rows.length && rows[0].pack !== null ? rows[0].pack : 0;
+      cc.querySelector('.cc-out').innerHTML = c100 === null ? 'Not in your report.' : 'Cost per 100 g: Rs ' + c100.toFixed(2) + '<br>Making cost for the pack: <b>Rs ' + (c100 * g / 100 + pack).toFixed(2) + '</b> incl. packaging Rs ' + pack.toFixed(2); };
+    cc.addEventListener('input', run); run();
+  }
+})();
+</script>

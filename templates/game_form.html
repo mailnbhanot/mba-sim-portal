@@ -1,0 +1,109 @@
+{% from "_tables.html" import table %}
+<div class="card">
+  <span class="pill">{{ info.unit }} &middot; {{ info.co }}</span>
+  <h3 style="margin-top:8px;font-size:18px">Round {{ view_round }}: {{ info.title }}</h3>
+  <p>{{ info.intro }}</p>
+  <p class="muted" style="margin-bottom:0">Fixed costs every quarter: {{ OVERHEAD|inr }} plus {{ SEG_FIXED|inr }} for each segment you serve, plus upkeep for each product. Everything you leave on the form from earlier rounds keeps running and keeps costing money. <b>Ranking uses both profit and market share</b> (profit weight {{ t.rank_w_profit }}%).</p>
+</div>
+
+{% if not submitted %}
+<div class="event" style="background:#fef3f2;border-color:#fecdca;color:#912018"><b>Nothing submitted yet.</b> If the round closes now, the <b>autopilot</b> applies: a generic product sold below cost in every segment, and none of your other decisions. That loses money. Complete the form and press Submit.</div>
+{% endif %}
+{% if t.participation == 'team' and edited_by %}<p class="muted">Last saved by {{ edited_by.name }}.</p>{% endif %}
+{% for key in events %}<div class="event"><b>Market news: {{ EVENTS[key].label }}.</b> {{ EVENTS[key].desc }}</div>{% endfor %}
+
+<form method="post" id="decisionForm">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+{% for mod in modules %}
+{% set m = mod.m %}
+<details class="card" {{ 'open' if mod.new or loop.index <= 3 }}>
+  <summary style="cursor:pointer"><b>{{ m.title }}</b> {% if mod.new %}<span class="pill warn">new this round</span>{% else %}<span class="pill">carried forward</span>{% endif %}</summary>
+  {% if m.intro %}<p class="muted">{{ m.intro }}</p>{% endif %}
+  {% if m.per == 'line' %}
+  <div style="overflow-x:auto"><table class="lines">
+    <tr><th>Product and market</th>{% for fl in m.fields %}<th>{{ fl.label }}</th>{% endfor %}</tr>
+    {% for key in mod['keys'] %}{% set sl = key.split('|')[0] %}{% set sg = key.split('|')[1] %}
+    <tr data-slot="{{ sl }}" data-seg="{{ sg }}" data-line="{{ key }}"><td><b>{% if locked_cats %}{{ cat_names[sl] }}{% else %}<span class="cn" data-slot="{{ sl }}">{{ cat_labels[values['portfolio'][sl]] if values.get('portfolio') else sl|upper }}</span>{% endif %}</b><br><span class="muted">{{ seg_short[sg] }}</span></td>
+      {% for fl in m.fields %}{% set nm = m.id ~ '.' ~ key ~ '.' ~ fl.name %}{% set val = mod['values'][key][fl.name] %}<td>{% include "_cell.html" %}</td>{% endfor %}</tr>
+    {% endfor %}
+  </table></div>
+  {% elif m.per %}
+  <div class="grid g3">
+    {% for key in mod['keys'] %}
+    <div class="seg" {% if m.per == 'slot' %}data-prod="{{ key }}"{% endif %}><h3>{% if m.per == 'slot' and not locked_cats %}<span class="cn" data-slot="{{ key }}">{{ cat_labels[values['portfolio'][key]] }}</span>{% else %}{{ mod.labels[key] }}{% endif %}</h3>
+      {% for fl in m.fields %}
+        {% set nm = m.id ~ '.' ~ key ~ '.' ~ fl.name %}{% set val = mod['values'][key][fl.name] %}
+        {% include "_field.html" %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="grid g3">
+    {% for fl in m.fields %}
+      {% set nm = m.id ~ '.' ~ fl.name %}{% set val = mod['values'][fl.name] %}
+      <div>{% include "_field.html" %}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</details>
+{% endfor %}
+<p style="margin-top:6px">
+  <button type="submit" formaction="{{ url_for('save_draft', tid=t.id) }}" class="sec">Save draft</button>
+  <button type="submit" formaction="{{ url_for('submit_decision', tid=t.id) }}">{{ 'Update decisions' if submitted else 'Submit decisions' }}</button>
+  {% if submitted %}<span class="pill ok">Submitted</span>{% else %}<span class="pill bad">Not submitted. A draft is NOT used when the round closes; only a submission is.</span>{% endif %}
+</p>
+</form>
+
+<script>
+const CL = {{ cat_labels|tojson }};
+const COST = {{ cost_calc|tojson }};
+const PRICE = {{ price_calc|tojson }};
+function numbered(){      // Soap 1, Soap 2, Soap 3 when a category is repeated
+  const sels = [...document.querySelectorAll('select.catsel')];
+  const names = sels.map(s => CL[s.value]);
+  sels.forEach((s, i) => {
+    const same = names.map((n, j) => n === names[i] ? j : -1).filter(j => j >= 0);
+    const label = same.length > 1 ? names[i] + ' ' + (same.indexOf(i) + 1) : names[i];
+    document.querySelectorAll('.cn[data-slot="' + s.dataset.slot + '"]').forEach(e => e.textContent = label);
+  });
+}
+document.querySelectorAll('select.catsel').forEach(sel => sel.addEventListener('change', numbered));
+numbered();
+function catOf(slot){ const s = document.querySelector('select.catsel[data-slot="' + slot + '"]'); return s ? s.value : {{ (locked_cats or {})|tojson }}[slot]; }
+function val(n){ const e = document.querySelector('[name="' + n + '"]'); return e ? (parseFloat(e.value) || 0) : 0; }
+function interp(rows, q, f){ // rows sorted by q
+  rows = rows.slice().sort((a, b) => a.q - b.q); if (!rows.length) return null;
+  if (q <= rows[0].q) return f(rows[0]); if (q >= rows[rows.length - 1].q) return f(rows[rows.length - 1]);
+  for (let i = 0; i < rows.length - 1; i++) if (q >= rows[i].q && q <= rows[i + 1].q) { const t = (q - rows[i].q) / (rows[i + 1].q - rows[i].q); return f(rows[i]) * (1 - t) + f(rows[i + 1]) * t; }
+}
+function roundness(p, lup){ let r; const m = (a) => Math.abs(p % a) < 1e-9; if (p >= 10 && m(10)) r = 1; else if (p >= 5 && m(5)) r = 0.8; else if (m(1)) r = 0.35; else if (Math.abs((p * 2) % 1) < 1e-9) r = 0; else r = -0.4; if (lup && r < 0.8) r -= 0.6; return r; }
+function check(){
+  document.querySelectorAll('table.lines tr[data-line]').forEach(tr => {
+    ['a', 'b'].forEach(k => {
+      const g = val('lines.' + tr.dataset.line + '.' + k + '_g'), p = val('lines.' + tr.dataset.line + '.' + k + '_price');
+      const cell = tr.querySelector('[name="lines.' + tr.dataset.line + '.' + k + '_price"]'); if (!cell) return;
+      let box = cell.parentNode.querySelector('.chk'); if (!box) { box = document.createElement('div'); box.className = 'chk muted'; box.style.fontSize = '12px'; cell.parentNode.appendChild(box); }
+      if (!g || !p) { box.textContent = ''; return; }
+      const lup = (tr.querySelector('[name="lines.' + tr.dataset.line + '.' + k + '_type"]') || {}).value === 'lup';
+      const r = roundness(p, lup); let msg = r >= 0.8 ? 'Round price' : (r < 0 ? 'Awkward price: traders need change' : '');
+      const cat = catOf(tr.dataset.slot);
+      if (COST) {
+        const q = val('product.' + tr.dataset.slot + '.quality'), loc = val('product.' + tr.dataset.slot + '.loc');
+        const rows = COST.rows.filter(x => x.cat === cat);
+        const c100 = interp(rows, q, x => x.c0 + (x.c10 !== null ? (x.c10 - x.c0) * loc / 10 : 0));
+        const pack = rows.length && rows[0].pack !== null ? rows[0].pack : 0;
+        if (c100 !== null) { const uc = c100 * g / 100 + pack; const diff = p - uc;
+          msg = '<b class="' + (diff > 0 ? 'pos' : 'neg') + '">' + (diff > 0 ? 'Covers' : 'Below') + ' making cost Rs ' + uc.toFixed(1) + '</b> (delivery extra). ' + msg; }
+      } else msg = 'Buy the supplier cost sheet to see if this price covers cost. ' + msg;
+      if (PRICE) {
+        const q = val('product.' + tr.dataset.slot + '.quality'); const rw = PRICE.rows.find(x => x.cat === cat && x.seg === tr.dataset.seg);
+        if (rw) { const fp = g / 100 * (rw.base + rw.perq * (q - 5)) + rw.pack; msg += ' Fair price about Rs ' + fp.toFixed(1) + '.'; }
+      }
+      box.innerHTML = msg;
+    });
+  });
+}
+document.querySelectorAll('#decisionForm input, #decisionForm select').forEach(e => e.addEventListener('input', check));
+check();
+</script>

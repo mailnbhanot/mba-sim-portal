@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}MKTM679 Simulation{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head><body>
+<header class="top">
+  <a class="logo" href="/">MKTM679 Market Simulation</a>
+  <nav>
+    {% if me and me.role == 'admin' %}
+      <a href="{{ url_for('admin_home') }}">Tournaments</a>
+      <a href="{{ url_for('admin_students') }}">Students</a>
+    {% elif me %}
+      <a href="{{ url_for('student_home') }}">My games</a>
+    {% endif %}
+  </nav>
+  {% if me %}
+  <span class="muted">{{ me.name }}</span>
+  <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="sec">Log out</button></form>
+  {% endif %}
+</header>
+<main class="{% block mainclass %}{% endblock %}">
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
+  {% endwith %}
+  {% block body %}{% endblock %}
+</main>
+</body></html>

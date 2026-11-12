@@ -1,0 +1,3 @@
+{% if fl.type == 'checkbox' %}<input type="checkbox" name="{{ nm }}" {{ 'checked' if val }}>
+{% elif fl.type == 'select' %}<select name="{{ nm }}" class="ptype">{% for k in fl.options %}<option value="{{ k }}" {{ 'selected' if k == val }}>{{ fl.opt_labels[k] }}</option>{% endfor %}</select>
+{% else %}<input type="number" name="{{ nm }}" min="{{ fl.min }}" {% if fl.max is not none %}max="{{ fl.max }}"{% endif %} step="{{ fl.step }}" {% if fl.blank and not val %}value="" placeholder="enter"{% else %}value="{{ val|int if val == val|int else val }}"{% endif %}>{% endif %}

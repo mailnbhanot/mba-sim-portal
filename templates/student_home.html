@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>My games</h1>
+<p class="sub">Only tournaments your teacher has enrolled you in appear here.</p>
+{% for t, en in rows %}
+<div class="card row" style="justify-content:space-between;align-items:center">
+  <div><h3>{{ t.name }}</h3>
+    <span class="muted">{{ game_of(t).course_code }} &middot; {{ en.alias }} &middot;
+    {% if t.status == 'finished' %}finished{% elif t.round_state == 'open' %}Round {{ t.current_round }} of {{ t.total_rounds }} is open{% else %}Round {{ t.current_round }} results are in{% endif %}
+    {% if t.mode == 'auto' and t.round_state == 'open' and t.deadline %}&middot; closes {{ t.deadline|ist }}{% endif %}</span></div>
+  <a class="btn" href="{{ url_for('play', tid=t.id) }}">{{ 'Play' if t.round_state == 'open' and t.status == 'active' else 'View results' }}</a>
+</div>
+{% endfor %}
+{% for t in waiting %}
+<div class="card"><h3>{{ t.name }}</h3><span class="muted">You are enrolled. Your teacher has not started it yet.</span></div>
+{% endfor %}
+{% if not rows and not waiting %}<div class="card muted">You are not enrolled in any tournament yet. Ask your teacher.</div>{% endif %}
+{% endblock %}

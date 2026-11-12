@@ -1,0 +1,18 @@
+{% macro cell(v, fmt) -%}
+{%- if v is none -%}-
+{%- elif v is string -%}{{ v }}
+{%- elif fmt == 'inr' -%}{{ v|inr }}
+{%- elif fmt == 'num' -%}{{ v|num }}
+{%- elif fmt == 'pct' -%}{{ (v * 100)|round(0)|int }}%
+{%- elif fmt == 'd1' -%}{{ '%.1f'|format(v) }}
+{%- elif fmt == 'd2' -%}{{ '%.2f'|format(v) }}
+{%- else -%}{{ v }}{%- endif -%}
+{%- endmacro %}
+{% macro table(t) %}
+<h3 style="margin-top:14px">{{ t.title }}</h3>
+<table>
+  <tr>{% for c in t.cols %}<th class="{{ 'n' if c[1] != 'text' }}">{{ c[0] }}</th>{% endfor %}</tr>
+  {% for row in t.rows %}<tr>{% for v in row %}<td class="{{ 'n' if t.cols[loop.index0][1] != 'text' }}">{{ cell(v, t.cols[loop.index0][1]) }}</td>{% endfor %}</tr>{% endfor %}
+</table>
+{% if t.note %}<p class="muted" style="margin:6px 0 0">{{ t.note }}</p>{% endif %}
+{% endmacro %}
